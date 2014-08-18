@@ -1,0 +1,13 @@
+<launch>
+    <param name="robot_name" value="zoidstein" />
+    <param name="armature_name" value="Armature" />
+    <param name="armature_axes" value="$(find ros_bge_bridge)/launch/zoidstein_armature_axes.blend" />
+
+    <node pkg="ros_bge_bridge" type="bge_joint_controller.py" name="bge_joint_controller" output="screen">
+        <param name="joint_controller_config" value="$(find ros_bge_bridge)/launch/zoidstein_joint_controllers.blend" />
+    </node>
+
+    <node pkg="ros_bge_bridge" type="launch_blender" name="launch_blender" output="screen">
+        <param name="blend_file" value="$(find ros_bge_bridge)/launch/zoidstein.blend" />
+    </node>
+</launch>

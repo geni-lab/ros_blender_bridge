@@ -1,0 +1,7 @@
+# BGE based body controllers
+
+bge_neck_controller:
+    neck_yaw_joint:
+        motor: pololu
+    neck_pitch_joint:
+        motor: pololu
