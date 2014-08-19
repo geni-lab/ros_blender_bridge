@@ -1,10 +1,10 @@
 <launch>
     <param name="robot_name" value="zoidstein" />
     <param name="armature_name" value="Armature" />
-    <param name="armature_axes" value="$(find ros_bge_bridge)/launch/zoidstein_armature_axes.blend" />
+    <param name="armature_config" value="$(find ros_bge_bridge)/launch/zoidstein_armature_axes.yaml" />
 
-    <node pkg="ros_bge_bridge" type="bge_joint_controller.py" name="bge_joint_controller" output="screen">
-        <param name="joint_controller_config" value="$(find ros_bge_bridge)/launch/zoidstein_joint_controllers.blend" />
+    <node pkg="ros_bge_bridge" type="run_bge_armature_controller.py" name="bge_armature_controller" output="screen">
+        <param name="bge_armature_controller_config" value="$(find ros_bge_bridge)/launch/zoidstein_armature_controller.yaml" />
     </node>
 
     <node pkg="ros_bge_bridge" type="launch_blender" name="launch_blender" output="screen">

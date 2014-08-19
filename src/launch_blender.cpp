@@ -76,7 +76,7 @@ int main(int argc, char **argv)
     if (nh.hasParam("blend_file"))
     {
         nh.getParam("blend_file", blend_file);
-        full_cmd = blender_executable + " " + blender_game_engine + " " + blend_file + " " + enable_autoexec;
+        full_cmd = blender_executable + " " + blender_game_engine + " " + enable_autoexec + " " + blend_file;
 
         ROS_INFO("Starting Blender...");
         ROS_INFO(full_cmd.c_str());
@@ -85,31 +85,15 @@ int main(int argc, char **argv)
         if (pid == 0)
         {
             // Child process, start Blender
-            int failed = execl(blender_executable.c_str(), blender_game_engine.c_str(),
-            blend_file.c_str(), enable_autoexec.c_str());
-
-            if(failed == -1)
-            {
-                ROS_ERROR("Failed to open Blender, exiting");
-                return EXIT_FAILURE;
-            }
+            system(full_cmd.c_str());
         }
         else if (pid > 0)
         {
-            // Parent process, wait until ROS exits, then kill child process
+            // Parent process, wait until ROS exits, then kill blender
             ros::spin();
-            kill(pid, SIGTERM);
-            wait(&status);
-
-            if(WIFSIGNALED(status))
-            {
-                ROS_INFO("Closed Blender \n");
-            }
-            else
-            {
-                ROS_ERROR("Failed to close Blender");
-                return EXIT_FAILURE;
-            }
+            string kill_cmd = "pkill -9 -f " + blend_file;
+            system(kill_cmd.c_str());
+            kill(pid, SIGKILL); //kill child process
         }
         else
         {

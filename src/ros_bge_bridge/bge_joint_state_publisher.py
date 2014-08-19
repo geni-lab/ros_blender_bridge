@@ -2,9 +2,13 @@
 import rospy
 from geometry_msgs.msg import PointStamped
 from sensor_msgs.msg import JointState
-from bge import logic
-from mathutils import Vector
 import yaml
+
+try:
+    from bge import logic
+    from mathutils import Vector
+except ImportError:
+    print('Not being executed from Blender Game Engine')
 
 
 class BgeJointStatePublisher(object):
@@ -16,16 +20,15 @@ class BgeJointStatePublisher(object):
         self.config = BgeJointStatePublisher.parse_config(self.armature_config)
 
         self.joint_state = JointState()
-        self.joint_state_pub = rospy.Publisher('desired_joint_state', JointState)
+        self.joint_state_pub = rospy.Publisher('desired_joint_state', JointState, queue_size=10)
 
     @staticmethod
-    def parse_config(self, path):
+    def parse_config(path):
         with open(path, 'r') as file:
             config = yaml.load(file)
 
         return config
 
-    @staticmethod
     def get_bone_angle(self, bone):
         axis = self.config[bone.name]['axis']
 
@@ -45,7 +48,7 @@ class BgeJointStatePublisher(object):
 
         for bone in armature.channels:
             if bone.name.endswith('_joint'):
-                position = BgeJointStatePublisher.get_bone_angle(bone)
+                position = self.get_bone_angle(bone)
 
                 joint_names.append(bone.name)
                 joint_positions.append(position)
