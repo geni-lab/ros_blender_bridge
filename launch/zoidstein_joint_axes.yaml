@@ -1,0 +1,7 @@
+# BGE based body controllers
+
+neck_yaw_joint:
+    axis: z
+
+neck_pitch_joint:
+    axis: x

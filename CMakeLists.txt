@@ -127,11 +127,7 @@ target_link_libraries(launch_blender
 ## Mark executable scripts (Python etc.) for installation
 ## in contrast to setup.py, you can choose the destination
 install(PROGRAMS
-   scripts/run_bge_armature_controller.py
-#   src/ros_bge_bridge/__init__.py
-#   src/ros_bge_bridge/bge_controllers.py
-#   src/ros_bge_bridge/bge_joint_state_publisher.py
-#   src/ros_bge_bridge/bge_target_controller.py
+   scripts/run_bge_controllers.py
    DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 

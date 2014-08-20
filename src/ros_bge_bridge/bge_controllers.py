@@ -124,7 +124,7 @@ class BgeController(object):
 class BgeArmatureController(Thread):
     def __init__(self):
         self.rate = rospy.Rate(rospy.get_param('~rate', 10.0))
-        self.config = rospy.get_param('~bge_armature_controller_config')
+        self.config = rospy.get_param('~bge_controllers_yaml')
         self.controllers = self.parse_config(self.config)
 
         self.joint_state_lock = RLock()

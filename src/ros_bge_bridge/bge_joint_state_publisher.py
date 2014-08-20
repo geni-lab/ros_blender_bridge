@@ -14,10 +14,10 @@ except ImportError:
 class BgeJointStatePublisher(object):
     def __init__(self):
         self.armature_name = rospy.get_param('armature_name', 'Armature')
-        self.armature_config = rospy.get_param('armature_config')
+        self.joint_axes_yaml = rospy.get_param('joint_axes_yaml')
         self.base_frame = rospy.get_param('base_frame', 'base_link')
 
-        self.config = BgeJointStatePublisher.parse_config(self.armature_config)
+        self.config = BgeJointStatePublisher.parse_config(self.joint_axes_yaml)
 
         self.joint_state = JointState()
         self.joint_state_pub = rospy.Publisher('desired_joint_state', JointState, queue_size=10)
@@ -49,6 +49,8 @@ class BgeJointStatePublisher(object):
         for bone in armature.channels:
             if bone.name.endswith('_joint'):
                 position = self.get_bone_angle(bone)
+
+                print("joint_rotation: " + str(bone.joint_rotation))
 
                 joint_names.append(bone.name)
                 joint_positions.append(position)

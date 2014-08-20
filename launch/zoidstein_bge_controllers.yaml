@@ -1,0 +1,14 @@
+# BGE based body controllers
+
+zoidstein_bge_neck_controller:
+  default_speed: 0.5
+  default_acceleration: 0.1
+  joints:
+    neck_yaw_joint:
+      motor:
+        type: pololu
+        namespace: pololu
+    neck_pitch_joint:
+      motor:
+        type: pololu
+        namespace: pololu
