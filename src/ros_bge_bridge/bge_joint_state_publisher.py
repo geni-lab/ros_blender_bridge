@@ -50,7 +50,7 @@ class BgeJointStatePublisher(object):
             if bone.name.endswith('_joint'):
                 position = self.get_bone_angle(bone)
 
-                print("joint_rotation: " + str(bone.joint_rotation))
+                #print("joint_rotation: " + str(bone.joint_rotation))
 
                 joint_names.append(bone.name)
                 joint_positions.append(position)

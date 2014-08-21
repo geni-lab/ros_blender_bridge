@@ -48,13 +48,11 @@ class Joint(object):
 
 
 class PololuJoint(Joint):
-    def __init__(self, joint_name, pololu_name):
+    def __init__(self, joint_name):
         Joint.__init__(self, joint_name)
-        self.pololu_name = pololu_name
-
         self.msg = MotorCommand()
         self.msg.joint_name = self.joint_name
-        self.motor_pub = rospy.Publisher(self.pololu_name + '/command', MotorCommand, queue_size=10)
+        self.motor_pub = rospy.Publisher('pololu/command', MotorCommand, queue_size=10)
 
     def set_position(self, position):
         self.msg.position = position
@@ -145,11 +143,10 @@ class BgeArmatureController(Thread):
             controllers.append(bge_controller)
 
             for joint_name, motor in list(properties['joints'].items()):
-                motor_type = motor['motor']['type']
-                motor_namespace = motor['motor']['namespace']
+                motor_type = motor['motor']
 
                 if motor_type == 'pololu':
-                    joint = PololuJoint(joint_name, motor_namespace)
+                    joint = PololuJoint(joint_name)
                     joint.set_speed(default_speed)
                     joint.set_acceleration(default_acceleration)
                 elif motor_type == 'dynamixel':
