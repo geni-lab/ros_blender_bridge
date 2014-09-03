@@ -1,0 +1,6 @@
+string action_name      # The name of the action
+#float32 duration        # The duration of the action (seconds)
+#bool repeat             # Whether the action should be repeated to make up the duration (True) or slowed down / sped up to attain the duration (False)
+---
+bool success                                            # Whether we succeeded in generating the joint trajectory
+trajectory_msgs/JointTrajectory joint_trajectory        # The joint trajectory

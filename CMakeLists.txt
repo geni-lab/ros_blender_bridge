@@ -10,6 +10,7 @@ find_package(catkin REQUIRED COMPONENTS
   sensor_msgs
   std_msgs
   message_generation
+  trajectory_msgs
 )
 
 ## System dependencies are found with CMake's conventions
@@ -55,6 +56,7 @@ catkin_python_setup()
 ## Generate services in the 'srv' folder
 add_service_files(
    FILES
+   GetJointTrajectory.srv
    SetSpeed.srv
    SetAcceleration.srv
 )
@@ -70,6 +72,7 @@ add_service_files(
 generate_messages(
    DEPENDENCIES
    std_msgs
+   trajectory_msgs
 #   sensor_msgs#   std_msgs
 )
 
@@ -128,6 +131,7 @@ target_link_libraries(launch_blender
 ## in contrast to setup.py, you can choose the destination
 install(PROGRAMS
    scripts/run_bge_controllers.py
+   scripts/run_bpy_joint_trajectory_server.py
    DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 

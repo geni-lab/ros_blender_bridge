@@ -67,6 +67,7 @@ int status;
 pid_t pid;
 string blend_file;
 string full_cmd;
+string python_script;
 
 int main(int argc, char **argv)
 {
@@ -75,8 +76,28 @@ int main(int argc, char **argv)
 
     if (nh.hasParam("blend_file"))
     {
-        nh.getParam("blend_file", blend_file);
-        full_cmd = blender_executable + " " + blender_game_engine + " " + enable_autoexec + " " + blend_file;
+        bool use_game_engine;
+        nh.param<bool>("game_engine", use_game_engine, false);
+
+        if(use_game_engine)
+        {
+            nh.getParam("blend_file", blend_file);
+            full_cmd = blender_executable + " " + blender_game_engine + " " + enable_autoexec + " " + blend_file;
+        }
+        else
+        {
+            if(nh.hasParam("python_script"))
+            {
+                nh.getParam("python_script", python_script);
+                nh.getParam("blend_file", blend_file);
+                full_cmd = blender_executable + " " + blend_file + " --background --python " + python_script + " ";
+            }
+            else
+            {
+                ROS_ERROR("Error python_script not specified, exiting");
+                return EXIT_FAILURE;
+            }
+        }
 
         ROS_INFO("Starting Blender...");
         ROS_INFO(full_cmd.c_str());

@@ -1,4 +1,32 @@
 #!/usr/bin/env python
+# Copyright (c) 2014, Jamie Diprose
+# All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#
+# * Redistributions of source code must retain the above copyright notice, this
+#   list of conditions and the following disclaimer.
+#
+# * Redistributions in binary form must reproduce the above copyright notice,
+#   this list of conditions and the following disclaimer in the documentation
+#   and/or other materials provided with the distribution.
+#
+# * Neither the name of the {organization} nor the names of its
+#   contributors may be used to endorse or promote products derived from
+#   this software without specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+# DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+# OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+# OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
 import rospy
 from threading import RLock, Thread
 import yaml
@@ -9,7 +37,7 @@ from std_srvs.srv import Empty, EmptyRequest, EmptyResponse
 from sensor_msgs.msg import JointState
 from ros_bge_bridge.srv import SetSpeed, SetAcceleration, SetSpeedResponse, SetAccelerationResponse
 import dynamixel_controllers
-
+from std_msgs.msg import Bool
 
 class Joint(object):
     __metaclass__ = abc.ABCMeta
@@ -93,15 +121,27 @@ class BgeController(object):
         rospy.Service(self.name + '/disable', Empty, self.disable)
         rospy.Service(self.name + '/set_speed', SetSpeed, self.set_speed)
         rospy.Service(self.name + '/set_acceleration', SetAcceleration, self.set_acceleration)
+        self.target_reached_pub = rospy.Publisher(self.name + '/target_reached', Bool)
+        self.target_reached = False
 
     def add_joint(self, joint):
         self.joints.append(joint)
 
-    def enable(self):
+    def enable(self, req):
         self.active = True
+        self.target_reached = False
+        return EmptyResponse()
 
-    def disable(self):
+    def disable(self, req):
         self.active = False
+        self.target_reached = False
+        return EmptyResponse()
+
+    def set_target_reached(self, target_reached):
+        self.target_reached = target_reached
+
+    def publish_target_reached(self):
+        self.target_reached_pub.publish(self.target_reached)
 
     def set_speed(self, req):
         for joint in self.joints:
@@ -125,9 +165,13 @@ class BgeArmatureController(Thread):
         self.config = rospy.get_param('~bge_controllers_yaml')
         self.controllers = self.parse_config(self.config)
 
+        self.desired_joint_state_lock = RLock()
+        self.desired_joint_state = JointState()
+
         self.joint_state_lock = RLock()
         self.joint_state = JointState()
         rospy.Subscriber('desired_joint_state', JointState, self.update_desired_joint_state)
+        rospy.Subscriber('joint_state', JointState, self.update_joint_state)
 
     @staticmethod
     def parse_config(path):
@@ -160,10 +204,19 @@ class BgeArmatureController(Thread):
         return controllers
 
     def update_desired_joint_state(self, msg):
+        with self.desired_joint_state_lock:
+            self.desired_joint_state = msg
+
+    def update_joint_state(self, msg):
         with self.joint_state_lock:
             self.joint_state = msg
 
     def get_desired_position(self, joint):
+        index = self.desired_joint_state.name.index(joint.joint_name)
+        position = self.desired_joint_state.position[index]
+        return position
+
+    def get_current_position(self, joint):
         index = self.joint_state.name.index(joint.joint_name)
         position = self.joint_state.position[index]
         return position
@@ -174,8 +227,23 @@ class BgeArmatureController(Thread):
         while not rospy.is_shutdown():
             for ctrlr in self.controllers:
                 if ctrlr.is_active():
+                    target_reached = 0
+
                     for joint in ctrlr.joints:
-                        position = self.get_desired_position(joint)
-                        joint.set_position(position)
+                        desired_position = self.get_desired_position(joint)
+                        current_position = self.get_current_position(joint)
+                        difference = abs(current_position - desired_position)
+
+                        joint.set_position(desired_position)
+
+                        if difference < 0.0174532925:
+                            target_reached += 1
+
+                    if target_reached == len(ctrlr.joints):
+                        ctrlr.set_target_reached(True)
+                    else:
+                        ctrlr.set_target_reached(False)
+
+                    self.ctrlr.publish_target_reached()
 
             self.rate.sleep()
