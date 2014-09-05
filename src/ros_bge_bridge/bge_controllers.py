@@ -129,16 +129,18 @@ class BgeController(object):
 
     def enable(self, req):
         self.active = True
-        self.target_reached = False
+        self.set_target_reached(False)
         return EmptyResponse()
 
     def disable(self, req):
         self.active = False
-        self.target_reached = False
+        self.set_target_reached(False)
         return EmptyResponse()
 
     def set_target_reached(self, target_reached):
-        self.target_reached = target_reached
+        if target_reached != self.target_reached:
+            self.target_reached = target_reached
+            self.publish_target_reached()
 
     def publish_target_reached(self):
         self.target_reached_pub.publish(self.target_reached)
@@ -170,8 +172,8 @@ class BgeArmatureController(Thread):
 
         self.joint_state_lock = RLock()
         self.joint_state = JointState()
-        rospy.Subscriber('desired_joint_state', JointState, self.update_desired_joint_state)
-        rospy.Subscriber('joint_state', JointState, self.update_joint_state)
+        rospy.Subscriber('desired_joint_states', JointState, self.update_desired_joint_state)
+        rospy.Subscriber('joint_states', JointState, self.update_joint_state)
 
     @staticmethod
     def parse_config(path):
@@ -212,7 +214,7 @@ class BgeArmatureController(Thread):
             self.joint_state = msg
 
     def get_desired_position(self, joint):
-        index = self.desired_joint_state.name.index(joint.joint_name)
+        index = self.desired_joint_state.name.index(joint.joint_name) #TODO: check if received joint state
         position = self.desired_joint_state.position[index]
         return position
 
@@ -222,7 +224,8 @@ class BgeArmatureController(Thread):
         return position
 
     def run(self):
-        rospy.wait_for_message('/desired_joint_state', JointState)
+        rospy.wait_for_message('/desired_joint_states', JointState)
+        rospy.wait_for_message('/joint_states', JointState)
 
         while not rospy.is_shutdown():
             for ctrlr in self.controllers:
@@ -235,15 +238,14 @@ class BgeArmatureController(Thread):
                         difference = abs(current_position - desired_position)
 
                         joint.set_position(desired_position)
-
+                        rospy.loginfo('name: {0}, difference: {1}'.format(joint.joint_name, str(difference)))
                         if difference < 0.0174532925:
+
                             target_reached += 1
 
                     if target_reached == len(ctrlr.joints):
                         ctrlr.set_target_reached(True)
                     else:
                         ctrlr.set_target_reached(False)
-
-                    self.ctrlr.publish_target_reached()
 
             self.rate.sleep()

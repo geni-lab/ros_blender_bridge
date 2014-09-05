@@ -77,7 +77,7 @@ int main(int argc, char **argv)
     if (nh.hasParam("blend_file"))
     {
         bool use_game_engine;
-        nh.param<bool>("game_engine", use_game_engine, false);
+        nh.param<bool>("use_game_engine", use_game_engine, false);
 
         if(use_game_engine)
         {

@@ -48,7 +48,7 @@ class BgeJointStatePublisher(object):
         self.config = JointAxesParser(self.joint_axes_yaml)
 
         self.joint_state = JointState()
-        self.joint_state_pub = rospy.Publisher('desired_joint_state', JointState, queue_size=10)
+        self.joint_state_pub = rospy.Publisher('desired_joint_states', JointState, queue_size=10)
 
     def publish_joint_state(self):
         objects = logic.getCurrentScene().objects
