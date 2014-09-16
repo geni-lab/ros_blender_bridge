@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# Copyright (c) 2014, Mandeep Bhatia, Jamie Diprose
+# Copyright (c) 2014, OpenCog Foundation
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -12,7 +12,7 @@
 #   this list of conditions and the following disclaimer in the documentation
 #   and/or other materials provided with the distribution.
 #
-# * Neither the name of the {organization} nor the names of its
+# * Neither the name of the OpenCog Foundation nor the names of its
 #   contributors may be used to endorse or promote products derived from
 #   this software without specific prior written permission.
 #
@@ -29,7 +29,7 @@
 
 bl_info = {
     "name": "Robo Blender",
-    "author": "Mandeep Bhatia, Jamie Diprose (jdddog)",
+    "author": "Jamie Diprose (jdddog)",
     "version": (0, 0, 1),
     "blender": (2, 7, 1),
     "location": "View3D > Properties > Robo Blender",
@@ -51,55 +51,56 @@ import bpy
 from bpy.props import *
 from bpy.app.handlers import persistent
 from mathutils import Vector, Matrix
-from threading import Thread
-#import rospy #TODO: enable this code
-#from sensor_msgs.msg import JointState #TODO: enable this code
+import rospy
+from sensor_msgs.msg import JointState
 
 
-class BackgroundThread(Thread):
-
+class ROSNode():
     def __init__(self):
-        Thread.__init__(self)
-        self.enable_motors = False #TODO: Check if motor state with robot, if not same as self.motors_enabled, enable / disable them
-        self.active = False
-        #self.joint_states = JointState() #TODO: enable this code
-        #self.rate = rospy.Rate(10) #TODO: enable this code
-        #rospy.Subscriber('joint_states', JointState, self.update_joint_states) #TODO: enable this code
+        self.sub = rospy.Subscriber('joint_states', JointState, self.update_joint_states)
 
     def update_joint_states(self, msg):
-        self.joint_states = msg
+        if isinstance(bpy.data, bpy.types.BlendData):
+            scene = bpy.data.scenes['Scene']
+            active_object = scene.objects.active
 
-    def run(self):
-        self.active = True
+            if active_object is not None:
+                if active_object.type == 'ARMATURE' and active_object.mode == 'POSE':
+                    armature = active_object
 
-        while self.active:
-            if isinstance(bpy.data, bpy.types.BlendData):
-                scene = bpy.data.scenes['Scene']
-                active_object = scene.objects.active
+                    if scene.robo_blender_pose_source == 'robot':
+                        self.enable_constraints(False)
 
-                # Check if need to change state of motors
-                gui_enable_motors = scene.robo_blender_motors == 'enable'
+                        for i, joint_name in enumerate(msg.name):
+                            position = msg.position[i]
+                            bone = self.get_bone(armature, joint_name)
+                            self.set_bone_position(bone, position)
+                    else:
+                        self.enable_constraints(True)
 
-                if not (self.enable_motors == gui_enable_motors):
-                    self.enable_motors = gui_enable_motors
-                    print("motor_state: " + scene.robo_blender_motors)
-                    #TODO: Set state of motors to gui_enable_motors value
+    def get_bone(self, armature, joint_name):
+        return armature.pose.bones[joint_name]
 
-                # If armature selected, and pose mode on
-                if active_object is not None:
-                    if active_object.type == 'ARMATURE' and active_object.mode == 'POSE':
-                        gui_pose_source = scene.robo_blender_pose_source
+    def set_bone_position(self, bone, position):
+        bone.rotation_mode = 'XYZ'
+        rotation = bone.rotation_euler
 
-                        if gui_pose_source == 'robot':
-                            # TODO: Disable ik chain on legs
-                            # TODO: Loop through joint state message, for each joint set the position of the bone with the same name
-                            print("Setting armature pose from robot's motors")
-                        else:
-                            print("Setting armature pose from blender")
-                            # TODO: Make sure IK chains on legs are enabled
+        if not bone.lock_ik_x and bone.lock_ik_y and bone.lock_ik_z:
+            rotation[0] = position
+        elif not bone.lock_ik_y and bone.lock_ik_x and bone.lock_ik_z:
+            rotation[1] = position
+        elif not bone.lock_ik_z and bone.lock_ik_x and bone.lock_ik_y:
+            rotation[2] = position
+        else:
+            rospy.logwarn('Warning: 1 bone axis should be unlocked and 2 locked. {0} lock_ik_x: {1}, lock_ik_y: {2}, lock_ik_z: {3}'.format(bone.name, bone.lock_ik_x, bone.lock_ik_y, bone.lock_ik_z))
 
-    def stop(self):
-        self.active = False
+        bone.rotation_euler = rotation
+
+    def enable_constraints(self, armature, enable):
+        for bone in armature.pose.bones:
+            for constraint in bone.constraints:
+                if constraint.mute is not enable:
+                    constraint.mute = enable
 
 
 class RoboBlenderPanel(bpy.types.Panel):
@@ -122,11 +123,6 @@ class RoboBlenderPanel(bpy.types.Panel):
         row = layout.row()
         scene = context.scene
 
-        # Enable disable motors
-        row = layout.row(align=True)
-        row.label(text="Motors:")
-        row.prop(scene, "robo_blender_motors", expand=True)
-
         # Choose pose source
         row = layout.row(align=True)
         row.label(text="Source:")
@@ -141,28 +137,19 @@ def register():
     scene = bpy.types.Scene
     bpy.utils.register_module(__name__)
 
-    scene.robo_blender_motors = bpy.props.EnumProperty(
-        name="motors",
-        description="Enable or disable robot motors",
-        items=RoboBlenderPanel.MOTORS,
-        default='disable')
-
     scene.robo_blender_pose_source = bpy.props.EnumProperty(
         name="pose_source",
         description="Choose the source of the armatures pose",
         items=RoboBlenderPanel.POSE_SOURCE,
         default='blender')
 
-    global background_thread
-    background_thread = BackgroundThread()
-    background_thread.start()
+    global ros_node
+    ros_node = ROSNode()
 
 def unregister():
     bpy.utils.unregister_module(__name__)
-    del bpy.types.Scene.robo_blender_motors
     del bpy.types.Scene.robo_blender_pose_source
-    background_thread.stop()
-
+    del ros_node
 
 if __name__ == "__main__":
     register()
