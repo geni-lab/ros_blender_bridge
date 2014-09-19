@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(ros_bge_bridge)
+project(ros_blender_bridge)
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
@@ -87,7 +87,7 @@ generate_messages(
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
   #INCLUDE_DIRS include
-  LIBRARIES ros_bge_bridge
+  LIBRARIES ros_blender_bridge
   CATKIN_DEPENDS roscpp rospy sensor_msgs std_msgs message_runtime
   #DEPENDS system_lib
 )
@@ -104,8 +104,8 @@ include_directories(
 )
 
 ## Declare a cpp library
-# add_library(ros_bge_bridge
-#   src/${PROJECT_NAME}/ros_bge_bridge.cpp
+# add_library(ros_blender_bridge
+#   src/${PROJECT_NAME}/ros_blender_bridge.cpp
 # )
 
 ## Declare a cpp executable
@@ -113,7 +113,7 @@ add_executable(launch_blender src/launch_blender.cpp)
 
 ## Add cmake target dependencies of the executable/library
 ## as an example, message headers may need to be generated before nodes
-# add_dependencies(ros_bge_bridge_node ros_bge_bridge_generate_messages_cpp)
+# add_dependencies(ros_blender_bridge_node ros_blender_bridge_generate_messages_cpp)
 
 ## Specify libraries to link a library or executable target against
 target_link_libraries(launch_blender
@@ -130,13 +130,14 @@ target_link_libraries(launch_blender
 ## Mark executable scripts (Python etc.) for installation
 ## in contrast to setup.py, you can choose the destination
 install(PROGRAMS
-   scripts/run_bge_controllers.py
-   scripts/run_bpy_joint_trajectory_server.py
+   scripts/run_blender_node.py
+   scripts/run_joint_trajectory_server.py
+   scripts/run_target_controllers.py
    DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
 ## Mark executables and/or libraries for installation
-# install(TARGETS ros_bge_bridge
+# install(TARGETS ros_blender_bridge
    #ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
    #LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
    #RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
@@ -161,7 +162,7 @@ install(PROGRAMS
 #############
 
 ## Add gtest based cpp test target and link libraries
-# catkin_add_gtest(${PROJECT_NAME}-test test/test_ros_bge_bridge.cpp)
+# catkin_add_gtest(${PROJECT_NAME}-test test/test_ros_blender_bridge.cpp)
 # if(TARGET ${PROJECT_NAME}-test)
 #   target_link_libraries(${PROJECT_NAME}-test ${PROJECT_NAME})
 # endif()
