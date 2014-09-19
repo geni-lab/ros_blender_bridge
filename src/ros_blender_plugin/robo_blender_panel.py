@@ -77,6 +77,8 @@ class BackgroundThread(Thread):
                 scene = bpy.data.scenes['Scene']
                 active_object = scene.objects.active
 
+
+
                 # Check if need to change state of motors
                 gui_enable_motors = scene.robo_blender_motors == 'enable'
 

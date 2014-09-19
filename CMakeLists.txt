@@ -130,8 +130,9 @@ target_link_libraries(launch_blender
 ## Mark executable scripts (Python etc.) for installation
 ## in contrast to setup.py, you can choose the destination
 install(PROGRAMS
-   scripts/run_bge_controllers.py
-   scripts/run_bpy_joint_trajectory_server.py
+   scripts/run_blender_node.py
+   scripts/run_joint_trajectory_server.py
+   scripts/run_target_controllers.py
    DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 

@@ -34,6 +34,7 @@ from geometry_msgs.msg import PointStamped
 from sensor_msgs.msg import JointState
 import yaml
 from ros_blender_bridge import BlenderUtils
+from threading import Thread
 
 try:
     import bpy
@@ -41,16 +42,16 @@ except ImportError:
     print('bpy imported outside of blender')
 
 
-class BlenderJointStatePublisher(object):
+class BlenderJointStatePublisher(Thread):
     def __init__(self):
-        self.armature_name = rospy.get_param('armature_name', 'Armature')
-        self.base_frame = rospy.get_param('frame_id', 'base_link')
+        super(BlenderJointStatePublisher, self).__init__()
+
+        self.rate = rospy.Rate(10)
         self.path = rospy.get_param('blender_target_controllers')
+        self.armature_name = rospy.get_param('armature_name')
 
         self.joint_states = JointState()
         self.joint_states.name = BlenderJointStatePublisher.get_joint_names_from_file(self.path)
-        self.joint_states.header.frame_id = self.base_frame
-
         self.joint_state_pub = rospy.Publisher('desired_joint_states', JointState, queue_size=10)
 
     @staticmethod
@@ -66,16 +67,21 @@ class BlenderJointStatePublisher(object):
 
         return joint_names
 
-    def publish_joint_state(self):
-        armature = BlenderUtils.get_armature(self.armature_name)
-        joint_positions = []
+    def run(self):
+        BlenderUtils.wait_until_loaded()
 
-        for name in self.joint_names:
-            pose_bone = BlenderUtils.get_pose_bone(armature, name)
-            angle = BlenderUtils.get_bone_rotation_rad(pose_bone)
-            joint_positions.append(angle)
+        while not rospy.is_shutdown():
+            armature = BlenderUtils.get_armature(self.armature_name)
+            joint_positions = []
 
-        self.joint_states.position = joint_positions
-        self.joint_states.header.stamp = rospy.Time().now()
-        self.joint_state_pub.publish(self.joint_states)
+            for name in self.joint_states.name:
+                pose_bone = BlenderUtils.get_pose_bone(armature, name)
+                angle = BlenderUtils.get_bone_rotation(pose_bone)
+                joint_positions.append(angle)
+
+            self.joint_states.position = joint_positions
+            self.joint_states.header.stamp = rospy.Time().now()
+            self.joint_state_pub.publish(self.joint_states)
+
+            self.rate.sleep()
 

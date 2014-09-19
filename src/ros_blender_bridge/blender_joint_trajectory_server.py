@@ -35,7 +35,7 @@ from sensor_msgs.msg import JointState
 from ros_blender_bridge.srv import GetJointTrajectory, GetJointTrajectoryRequest, GetJointTrajectoryResponse
 from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
 from threading import RLock
-from ros_blender_bridge import ActionUtils, BlenderUtils
+from ros_blender_bridge import BlenderUtils
 
 try:
     import bpy
@@ -43,12 +43,9 @@ except ImportError:
     print('bpy imported outside of blender')
 
 
-class BpyJointTrajectoryServer(object):
+class BlenderJointTrajectoryServer(object):
     def __init__(self):
         self.armature_name = rospy.get_param('armature_name', 'Armature')
-        self.joint_axes_yaml = rospy.get_param('joint_axes_yaml')
-        self.base_frame = rospy.get_param('base_frame', 'base_link')
-        self.config = JointAxesParser(self.joint_axes_yaml)
         self.armature_lock = RLock()
         rospy.Service('get_joint_trajectory', GetJointTrajectory, self.get_joint_trajectory_callback)
 
@@ -69,7 +66,7 @@ class BpyJointTrajectoryServer(object):
                 action = actions[req.action_name]
                 start = int(action.frame_range[0])
                 end = int(action.frame_range[1])
-                joint_names = ActionUtils.get_joint_names(action)
+                joint_names = BlenderUtils.get_joint_names(action)
                 prev_position = 0.0
 
                 # Set current action and reset timeline
@@ -83,8 +80,7 @@ class BpyJointTrajectoryServer(object):
 
                     for joint_name in joint_names:
                         pose_bone = armature.pose.bones[joint_name]
-                        axis = self.config.get_bone_axis(joint_name)
-                        position = BlenderUtils.get_bone_rotation_rad(pose_bone, axis)
+                        position = BlenderUtils.get_bone_rotation(pose_bone)
                         velocity = abs(prev_position - position) * seconds_per_frame
 
                         point.positions.append(position)

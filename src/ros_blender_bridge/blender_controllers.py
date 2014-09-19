@@ -86,7 +86,7 @@ class TargetController(object):
         rospy.Service(self.name + '/disable', Empty, self.disable)
         rospy.Service(self.name + '/set_speed', SetSpeed, self.set_speed)
         rospy.Service(self.name + '/set_acceleration', SetAcceleration, self.set_acceleration)
-        self.target_reached_pub = rospy.Publisher(self.name + '/target_reached', Bool)
+        self.target_reached_pub = rospy.Publisher(self.name + '/target_reached', Bool, queue_size=10)
         self.target_reached = False
 
     def add_joint(self, joint):
@@ -128,6 +128,8 @@ class TargetController(object):
 
 class ArmatureController(Thread):
     def __init__(self):
+        super(ArmatureController, self).__init__()
+
         self.rate = rospy.Rate(rospy.get_param('~rate', 10.0))
         self.config = rospy.get_param('blender_target_controllers')
         self.controller_list = self.get_controllers_from_file(self.config)
@@ -148,19 +150,21 @@ class ArmatureController(Thread):
         controller_list = []
 
         for ctrl_name, properties in list(config.items()):
+            target_controller = TargetController(ctrl_name)
+
             default_speed = properties['default_speed']
             default_acceleration = properties['default_acceleration']
-            target_controller = TargetController(ctrl_name)
-            controller_list.append(target_controller)
 
             for joint_name, joint_config in list(properties['joints'].items()):
                 module_name = joint_config['module']
                 class_name = joint_config['class']
                 module = importlib.import_module(module_name)
-                joint = getattr(module, class_name)
+                joint = getattr(module, class_name)(joint_name)
                 joint.set_speed(default_speed)
                 joint.set_acceleration(default_acceleration)
-                controller_list.append(joint)
+                target_controller.add_joint(joint)
+
+            controller_list.append(target_controller)
 
         return controller_list
 
@@ -197,7 +201,7 @@ class ArmatureController(Thread):
                         difference = abs(current_position - desired_position)
 
                         joint.set_position(desired_position)
-                        rospy.loginfo('name: {0}, difference: {1}'.format(joint.joint_name, str(difference)))
+                        #rospy.loginfo('name: {0}, difference: {1}'.format(joint.joint_name, str(difference)))
                         if difference < 0.0174532925:
 
                             target_reached += 1

@@ -34,23 +34,28 @@ from geometry_msgs.msg import PointStamped, Point
 from std_srvs.srv import Empty, EmptyResponse
 import yaml
 from ros_blender_bridge import BlenderUtils
+from threading import Thread
 
 try:
     import bpy
+    from mathutils import Vector, Matrix
 except ImportError:
     print('bpy imported outside of blender')
 
 
 class Target(object):
-    def __init__(self, controller_name, bone_name, target_topic, default_position):
+    def __init__(self, controller_name, frame_id, bone_name, target_topic, default_position):
         self.controller_name = controller_name
+        self.frame_id = frame_id
         self.bone_name = bone_name
         self.target_topic = target_topic
-        self.point = None
         self.default_position = default_position
-        rospy.Subscriber(self.controller_name + '/' + self.target_topic, PointStamped, self.__update_target)
+        self.full_target_topic = self.controller_name + '/' + self.target_topic
+        self.armature_name = rospy.get_param('armature_name', 'Armature')
+
+        rospy.Subscriber(self.full_target_topic, PointStamped, self.__update_target)
         rospy.Service(self.controller_name + '/reset', Empty, self.reset)
-        rospy.loginfo('creating {0} with default position: {1}'.format(self.target_path, self.default_position))
+        rospy.loginfo('creating {0} with default position: {1}'.format(self.full_target_topic, self.default_position))
 
     def __repr__(self):
         return self.target_topic
@@ -58,26 +63,37 @@ class Target(object):
     def reset(self, req):
         rospy.loginfo('reset {0} to default: {1}'.format(self.target_topic, self.default_position))
         if self.is_initialized():
-            self.point = [self.default_position.x, self.default_position.y, self.default_position.z]
+            self.set_position(self.default_position)
         return EmptyResponse()
 
     def is_initialized(self):
         return self.point is not None and self.default_position is not None
 
-    @staticmethod
-    def to_blender_point(ros_point):
-        return [-ros_point.y, ros_point.x, ros_point.z]
+    def set_position(self, position):
+        armature = BlenderUtils.get_armature(self.armature_name)
+        pose_bone = BlenderUtils.get_pose_bone(armature, self.bone_name)
+        BlenderUtils.set_bone_world_location(pose_bone, position)
+        bpy.context.scene.update()
 
     def __update_target(self, msg):
-        self.point = Target.to_blender_point(msg.point)
-        rospy.loginfo('update {0} to : {1}'.format(self.target_path, self.point))
+        armature = BlenderUtils.get_armature(self.armature_name)
+        origin_bone = BlenderUtils.get_pose_bone(armature, self.frame_id)
+
+        point = BlenderUtils.to_blender_vector(msg.point)
+        origin_world = BlenderUtils.get_bone_world_location(origin_bone)
+        world_position = origin_world + point
+
+        self.set_position(world_position)
+        rospy.loginfo('update {0} to : {1}'.format(self.full_target_topic, msg.point))
 
 
-class BlenderTargetListener(object):
+class BlenderTargetListener():
     def __init__(self):
+        BlenderUtils.wait_until_loaded()
         self.armature_name = rospy.get_param('armature_name', 'Armature')
-        self.targets = self.get_targets_from_file()
-        rospy.loginfo('targets loaded: ' + str(self.targets))
+        self.path = rospy.get_param('blender_target_controllers')
+        self.targets = self.get_targets_from_file(self.path)
+        rospy.loginfo('targets loaded and initialized: ' + str(self.targets) + ". listening...")
 
     def get_targets_from_file(self, path):
         with open(path, 'r') as file:
@@ -92,23 +108,13 @@ class BlenderTargetListener(object):
             target_topic = properties['target_topic']
 
             pose_bone = BlenderUtils.get_pose_bone(armature, bone_name)
-            default_position = BlenderUtils.get_bone_location(armature, pose_bone, frame_id)
+            default_position = BlenderUtils.get_bone_world_location(pose_bone)
 
-            target = Target(controller_name, bone_name, target_topic, Point(x=default_position[0], y=default_position[1], z=default_position[2]))
+            target = Target(controller_name, frame_id, bone_name, target_topic, default_position)
+            target.set_position(default_position)
             targets.append(target)
 
         return targets
 
-    def update(self):
-        armature = BlenderUtils.get_armature(self.armature_name)
-        BlenderUtils.enable_pose_mode(armature)
 
-        for target in self.targets:
-            if target.is_initialized():
-                frame_id = target.frame_id
-                pose_bone = BlenderUtils.get_pose_bone(armature, target.bone_name)
-                BlenderUtils.set_bone_location(pose_bone, target.point, frame_id)
-
-        # Update Scene
-        bpy.context.scene.update()
 

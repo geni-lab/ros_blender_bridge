@@ -1,8 +1,9 @@
 #!/usr/bin/env python
 import rospy
-from ros_blender_bridge import ArmatureController
+from ros_blender_bridge import ArmatureController, BlenderUtils
 
-rospy.init_node('bge_armature_controller')
+rospy.init_node('blender_target_controllers')
+
 controller = ArmatureController()
-controller.run()
+controller.start()
 rospy.spin()
