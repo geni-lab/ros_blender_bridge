@@ -33,10 +33,10 @@ import rospy
 from threading import RLock, Thread
 import yaml
 import abc
-from std_srvs.srv import Empty, EmptyRequest, EmptyResponse
+from std_srvs.srv import Empty, EmptyResponse
 from sensor_msgs.msg import JointState
 from ros_blender_bridge.srv import SetSpeed, SetAcceleration, SetSpeedResponse, SetAccelerationResponse
-from std_msgs.msg import Bool
+from std_msgs.msg import Bool, Empty as EmptyMsg
 import importlib
 
 
@@ -81,49 +81,49 @@ class TargetController(object):
         self.name = name
         self.joints = []
         self.active = True
+        self.lock = RLock()
 
         rospy.Service(self.name + '/enable', Empty, self.enable)
         rospy.Service(self.name + '/disable', Empty, self.disable)
         rospy.Service(self.name + '/set_speed', SetSpeed, self.set_speed)
         rospy.Service(self.name + '/set_acceleration', SetAcceleration, self.set_acceleration)
-        self.target_reached_pub = rospy.Publisher(self.name + '/target_reached', Bool, queue_size=10)
-        self.target_reached = False
+        self.joints_stopped_pub = rospy.Publisher(self.name + '/joints_stopped', EmptyMsg, queue_size=1)
+        self.joints_stopped = False
 
     def add_joint(self, joint):
         self.joints.append(joint)
 
     def enable(self, req):
-        self.active = True
-        self.set_target_reached(False)
-        return EmptyResponse()
+        with self.lock:
+            self.active = True
+            self.joints_stopped = False
+            return EmptyResponse()
 
     def disable(self, req):
-        self.active = False
-        self.set_target_reached(False)
-        return EmptyResponse()
+        with self.lock:
+            self.active = False
+            return EmptyResponse()
 
-    def set_target_reached(self, target_reached):
-        if target_reached != self.target_reached:
-            self.target_reached = target_reached
-            self.publish_target_reached()
-
-    def publish_target_reached(self):
-        self.target_reached_pub.publish(self.target_reached)
+    def publish_joints_stopped(self):
+        self.joints_stopped_pub.publish(EmptyMsg())
 
     def set_speed(self, req):
-        for joint in self.joints:
-            joint.set_speed(req.speed)
+        with self.lock:
+            for joint in self.joints:
+                joint.set_speed(req.speed)
 
-        return SetSpeedResponse()
+            return SetSpeedResponse()
 
     def set_acceleration(self, req):
-        for joint in self.joints:
-            joint.set_acceleration(req.acceleration)
+        with self.lock:
+            for joint in self.joints:
+                joint.set_acceleration(req.acceleration)
 
-        return SetAccelerationResponse()
+            return SetAccelerationResponse()
 
     def is_active(self):
-        return self.active
+        with self.lock:
+            return self.active
 
 
 class ArmatureController(Thread):
@@ -134,10 +134,9 @@ class ArmatureController(Thread):
         self.config = rospy.get_param('blender_target_controllers')
         self.controller_list = self.get_controllers_from_file(self.config)
 
-        self.desired_joint_states_lock = RLock()
         self.desired_joint_states = JointState()
 
-        self.joint_states_lock = RLock()
+        self.lock = RLock()
         self.joint_states = JointState()
         rospy.Subscriber('desired_joint_states', JointState, self.update_desired_joint_states)
         rospy.Subscriber('joint_states', JointState, self.update_joint_states)
@@ -169,11 +168,11 @@ class ArmatureController(Thread):
         return controller_list
 
     def update_desired_joint_states(self, msg):
-        with self.desired_joint_states_lock:
+        with self.lock:
             self.desired_joint_states = msg
 
     def update_joint_states(self, msg):
-        with self.joint_states_lock:
+        with self.lock:
             self.joint_states = msg
 
     def get_desired_position(self, joint):
@@ -191,24 +190,25 @@ class ArmatureController(Thread):
         rospy.wait_for_message('/joint_states', JointState)
 
         while not rospy.is_shutdown():
-            for controller in self.controller_list:
-                if controller.is_active():
-                    target_reached = 0
+            with self.lock:
+                for controller in self.controller_list:
+                    if controller.is_active():
 
-                    for joint in controller.joints:
-                        desired_position = self.get_desired_position(joint)
-                        current_position = self.get_current_position(joint)
-                        difference = abs(current_position - desired_position)
+                        num_joints_stopped = 0
 
-                        joint.set_position(desired_position)
-                        #rospy.loginfo('name: {0}, difference: {1}'.format(joint.joint_name, str(difference)))
-                        if difference < 0.0174532925:
+                        for joint in controller.joints:
+                            desired_position = self.get_desired_position(joint)
+                            current_position = self.get_current_position(joint)
+                            difference = abs(current_position - desired_position)
 
-                            target_reached += 1
+                            joint.set_position(desired_position)
 
-                    if target_reached == len(controller.joints):
-                        controller.set_target_reached(True)
-                    else:
-                        controller.set_target_reached(False)
+                            if difference < 0.0174532925:
+                                #rospy.loginfo('name: {0}, difference: {1}'.format(joint.joint_name, str(difference)))
+                                num_joints_stopped += 1
+
+                        if controller.joints_stopped is False and num_joints_stopped == len(controller.joints):
+                            controller.joints_stopped = True
+                            controller.publish_joints_stopped()
 
             self.rate.sleep()
