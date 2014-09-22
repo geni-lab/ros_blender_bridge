@@ -91,7 +91,7 @@ int main(int argc, char **argv)
                 nh.getParam("python_script", python_script);
                 nh.getParam("blend_file", blend_file);
                 full_cmd = blender_executable + " " + blend_file + " --background --python " + python_script + " ";
-            }//
+            }//--background
             else
             {
                 ROS_ERROR("Error python_script not specified, exiting");

@@ -47,6 +47,7 @@ class Joint(object):
         self.joint_name = joint_name
         self.speed = 0.0
         self.acceleration = 0.0
+        self.position = 0.0
 
     @abc.abstractmethod
     def set_position(self, position):
@@ -81,6 +82,7 @@ class TargetController(object):
         self.name = name
         self.joints = []
         self.active = True
+        self.iterations = 0
         self.lock = RLock()
 
         rospy.Service(self.name + '/enable', Empty, self.enable)
@@ -96,6 +98,7 @@ class TargetController(object):
     def enable(self, req):
         with self.lock:
             self.active = True
+            self.iterations = 0
             self.joints_stopped = False
             return EmptyResponse()
 
@@ -176,14 +179,16 @@ class ArmatureController(Thread):
             self.joint_states = msg
 
     def get_desired_position(self, joint):
-        index = self.desired_joint_states.name.index(joint.joint_name) #TODO: check if received joint state
-        position = self.desired_joint_states.position[index]
-        return position
+        with self.lock:
+            index = self.desired_joint_states.name.index(joint.joint_name) #TODO: check if received joint state
+            position = self.desired_joint_states.position[index]
+            return position
 
     def get_current_position(self, joint):
-        index = self.joint_states.name.index(joint.joint_name)
-        position = self.joint_states.position[index]
-        return position
+        with self.lock:
+            index = self.joint_states.name.index(joint.joint_name)
+            position = self.joint_states.position[index]
+            return position
 
     def run(self):
         rospy.wait_for_message('/desired_joint_states', JointState)
@@ -202,13 +207,18 @@ class ArmatureController(Thread):
                             difference = abs(current_position - desired_position)
 
                             joint.set_position(desired_position)
+                            rospy.loginfo('current_position: {0}, desired_position: {1}, diff: {2}'.format(current_position, desired_position, difference))
 
-                            if difference < 0.0174532925:
-                                #rospy.loginfo('name: {0}, difference: {1}'.format(joint.joint_name, str(difference)))
+
+                            if difference < 0.05:
                                 num_joints_stopped += 1
 
-                        if controller.joints_stopped is False and num_joints_stopped == len(controller.joints):
+                        #TODO: set finished if average change of each joint is little
+                        rospy.loginfo('num_joints_stopped: {0}, joints: {1}'.format(num_joints_stopped, len(controller.joints)))
+                        if controller.iterations > 5 and controller.joints_stopped is False and num_joints_stopped == len(controller.joints):
                             controller.joints_stopped = True
                             controller.publish_joints_stopped()
+
+                        controller.iterations += 1
 
             self.rate.sleep()
