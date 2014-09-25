@@ -13,7 +13,6 @@
 
 /*
  * Copyright (c) 2012, David Butterworth, KAIST
- * Copyright (c) 2014, Jamie Diprose, OpenCog
  * All rights reserved.
  *
  *
@@ -68,16 +67,22 @@ pid_t pid;
 string blend_file;
 string full_cmd;
 string python_script;
+string background;
 
 int main(int argc, char **argv)
 {
     ros::init(argc, argv, "blender");
     ros::NodeHandle nh("~");
+    ros::NodeHandle n("~");
+
+
 
     if (nh.hasParam("blend_file"))
     {
         bool use_game_engine;
+        bool show_gui;
         nh.param<bool>("use_game_engine", use_game_engine, false);
+
 
         if(use_game_engine)
         {
@@ -90,8 +95,22 @@ int main(int argc, char **argv)
             {
                 nh.getParam("python_script", python_script);
                 nh.getParam("blend_file", blend_file);
-                full_cmd = blender_executable + " " + blend_file + " --background --python " + python_script + " ";
-            }//--background
+
+                bool show_gui;
+                n.getParam("/show_blender_gui", show_gui);
+                printf("show_gui: %d", show_gui);
+
+                if (!show_gui)
+                {
+                    background = " --background";
+                }
+                else
+                {
+                    background = "";
+                }
+
+                full_cmd = blender_executable + " " + blend_file + background + " --python " + python_script + " ";
+            }
             else
             {
                 ROS_ERROR("Error python_script not specified, exiting");
