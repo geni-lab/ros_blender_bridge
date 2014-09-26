@@ -207,14 +207,14 @@ class ArmatureController(Thread):
                             difference = abs(current_position - desired_position)
 
                             joint.set_position(desired_position)
-                            rospy.loginfo('current_position: {0}, desired_position: {1}, diff: {2}'.format(current_position, desired_position, difference))
+                            #rospy.loginfo('current_position: {0}, desired_position: {1}, diff: {2}'.format(current_position, desired_position, difference))
 
 
                             if difference < 0.05:
                                 num_joints_stopped += 1
 
                         #TODO: set finished if average change of each joint is little
-                        rospy.loginfo('num_joints_stopped: {0}, joints: {1}'.format(num_joints_stopped, len(controller.joints)))
+                        #rospy.loginfo('num_joints_stopped: {0}, joints: {1}'.format(num_joints_stopped, len(controller.joints)))
                         if controller.iterations > 5 and controller.joints_stopped is False and num_joints_stopped == len(controller.joints):
                             controller.joints_stopped = True
                             controller.publish_joints_stopped()

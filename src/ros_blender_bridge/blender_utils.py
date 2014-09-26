@@ -39,7 +39,6 @@ except ImportError:
     print('bpy imported outside of blender')
 
 
-
 class BlenderUtils():
 
     @staticmethod
@@ -147,3 +146,12 @@ class BlenderUtils():
                 joint_names.append(name)
 
         return joint_names
+
+    @staticmethod
+    def is_keyframe(action, frame_num):
+        for fcu in action.fcurves:
+            for p in fcu.keyframe_points:
+                if frame_num == p.co.x:
+                    return True
+
+        return False

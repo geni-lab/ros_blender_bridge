@@ -40,7 +40,8 @@ from ros_blender_bridge import BlenderUtils
 try:
     import bpy
 except ImportError:
-    print('bpy imported outside of blender')
+    pass
+    #print('bpy imported outside of blender')
 
 
 class BlenderJointTrajectoryServer(object):
@@ -54,40 +55,42 @@ class BlenderJointTrajectoryServer(object):
         success = True
         msg = JointTrajectory()
         msg.header.stamp = rospy.Time().now() #TODO: check header time, might want to be a param
-
+        print("start")
         with self.armature_lock:
             scene = bpy.context.scene
             screen = bpy.ops.screen
             armature = bpy.data.objects[self.armature_name]
             actions = bpy.data.actions
             seconds_per_frame = 1.0 / scene.render.fps
-
+            print("Actions: " + str(actions))
             if req.action_name in actions:
                 action = actions[req.action_name]
                 start = int(action.frame_range[0])
                 end = int(action.frame_range[1])
-                joint_names = BlenderUtils.get_joint_names(action)
+                joint_names = BlenderUtils.get_joint_names(action, armature)
                 prev_position = 0.0
-
                 # Set current action and reset timeline
                 armature.animation_data_create()
                 armature.animation_data.action = action
 
-                for i in range(start, end):
-                    scene.frame_set(frame=i)
-                    scene.update()
-                    point = JointTrajectoryPoint()
+                for i in range(start, end + 1):
+                    if BlenderUtils.is_keyframe(action, i):
+                        scene.frame_set(frame=i)
+                        scene.update()
+                        point = JointTrajectoryPoint()
 
-                    for joint_name in joint_names:
-                        pose_bone = armature.pose.bones[joint_name]
-                        position = BlenderUtils.get_bone_rotation(pose_bone)
-                        velocity = abs(prev_position - position) * seconds_per_frame
+                        for joint_name in joint_names:
+                            pose_bone = armature.pose.bones[joint_name]
+                            #position = float("{0:.2f}".format(BlenderUtils.get_bone_rotation(pose_bone)))
+                            position = BlenderUtils.get_bone_rotation(pose_bone)
+                            velocity = abs(prev_position - position) * seconds_per_frame
 
-                        point.positions.append(position)
-                        point.velocities.append(velocity)
-                        point.time_from_start = rospy.Duration.from_sec(i * seconds_per_frame)
+                            point.positions.append(position)
+                            point.velocities.append(velocity)
+                            point.time_from_start = rospy.Duration.from_sec(i * seconds_per_frame)
+                            prev_position = position
+
                         msg.points.append(point)
-                        prev_position = position
 
             else:
                 rospy.logerr('Action {0} does not exist in this .blend file'.format(req.action_name))
