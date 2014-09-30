@@ -4,8 +4,8 @@ ROS Blender Bridge is a ROS driver for Blender. It provides access to Blender ar
 
 ===
 
-* [Installation](https://github.com/geni-lab/ros_blender_bridge/wiki/Installation)
-* [Authoring a ROS Blender Bridge compatible Blender armature](https://github.com/geni-lab/ros_blender_bridge/wiki/Creating-an-armature-in-Blender)
-* [Publishing an armatures joint state]()
-* [Setting up a target controller]()
-* [Creating an Action and retrieving a JointTrajectory message]()
+1. [Installation](https://github.com/geni-lab/ros_blender_bridge/wiki/Installation)
+2. [Authoring a ROS Blender Bridge compatible Blender armature](https://github.com/geni-lab/ros_blender_bridge/wiki/Creating-an-armature-in-Blender)
+3. [Publishing an armatures joint state]()
+4. [Setting up a target controller]()
+5. [Creating an Action and retrieving a JointTrajectory message]()
